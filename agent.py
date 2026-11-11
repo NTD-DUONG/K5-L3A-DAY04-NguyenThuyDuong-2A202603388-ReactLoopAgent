@@ -12,6 +12,11 @@ Một incident không ảnh hưởng người dùng không loại trừ các ngu
 
 
 def run_agent(question, provider, tools, max_steps=6):
+    # Extended tools supply their own prompt/schema. Keep the core eval path intact.
+    if hasattr(tools, "schemas") and hasattr(tools, "system_prompt"):
+        from bonus_policy import BonusExecutionPolicy
+        if not isinstance(tools, BonusExecutionPolicy):
+            tools = BonusExecutionPolicy(tools)
     messages = [
         {"role": "system", "content": getattr(tools, "system_prompt", SYSTEM_PROMPT)},
         {"role": "user", "content": question},

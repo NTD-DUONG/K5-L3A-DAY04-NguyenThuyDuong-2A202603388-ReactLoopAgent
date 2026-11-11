@@ -95,5 +95,19 @@ https://github.com/NTD-DUONG/K5-L3A-DAY04-NguyenThuyDuong-2A202603388-ReactLoopA
 
 https://aithucchien.vinuni.edu.vn
 
-Chưa có eval_bonus.json: ba unit tests bonus đạt không thay thế 10 case eval
-bonus, vì vậy chưa yêu cầu điểm bonus.
+## Demo bonus
+
+eval_bonus.json đủ 10/10 case scored, điểm 100/100, quy đổi tham khảo 15/15.
+Chi tiết và giới hạn trong BONUS_NOTES.md; 41 tests chính và 9 tests bonus đạt.
+
+```powershell
+python demo_trace.py --file eval_bonus.json --case B2
+python demo_trace.py --file eval_bonus.json --case B4
+```
+
+B2 thể hiện pagination 0 → 3 → 6. B4 thể hiện Vercel bị 429 ba lần, lần cuối
+retry_allowed=false; agent dừng và vẫn báo thông tin GitHub. Đây là 429 giả lập
+của status tool, không phải lỗi quota của Gemini.
+
+Các file bổ sung cho commit bonus: agent.py, bonus_policy.py, bonus/test_policy.py,
+eval_bonus.json, BONUS_NOTES.md, NOTES.md, DEMO.md và demo_trace.py.

@@ -82,3 +82,7 @@ Các giới hạn kiểm tra nguồn và độ ổn định vẫn còn như mụ
   một thay đổi nếu không có thí nghiệm bổ sung.
 - Các lần trước có 429 và lỗi judge. Hai bản hiện tại đều đủ 22 case scored;
   không bỏ case hoặc sửa tay điểm.
+
+Bonus đã hoàn thành sau bài chính: eval_bonus.json đủ 10/10 case scored,
+100/100, quy đổi tham khảo 15/15. Bằng chứng retry, pagination, context và
+giới hạn được trình bày riêng trong BONUS_NOTES.md. Các file eval chính giữ nguyên.

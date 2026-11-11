@@ -32,8 +32,11 @@ def main():
             if result.get('url'):
                 print('    URL:', result['url'])
             if 'updates' in result:
-                print(f"    updates: {len(result['updates'])}/{result.get('updates_total')}; "
+                total = result.get('updates_total', result.get('total_updates'))
+                print(f"    updates: {len(result['updates'])}/{total}; "
                       f"truncated: {any(u.get('truncated') for u in result['updates'])}")
+                if 'next_offset' in result:
+                    print(f"    offset: {result.get('offset')}; next_offset: {result['next_offset']}")
         else:
             print(' ', json.dumps(event, ensure_ascii=False))
     print('\nAnswer:\n' + case['result']['answer'])
