@@ -3,3 +3,5 @@
 __pycache__/
 *.pyc
 eval_results*.json
+.test-tmp/
+eval_before_21_scored.json

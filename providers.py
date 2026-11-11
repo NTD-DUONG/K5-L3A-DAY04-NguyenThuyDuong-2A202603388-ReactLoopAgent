@@ -42,6 +42,8 @@ class Provider:
             raise ValueError(f'Thiếu {key_name}; xem README.md.')
 
     def complete(self, messages, schemas):
+        if self.name == 'gemini' and os.getenv('GEMINI_API_MODE') == 'native':
+            return self._gemini_native(messages, schemas)
         if self.name == 'anthropic':
             return self._anthropic(messages, schemas)
         payload = {'model': self.model, 'messages': messages}
@@ -52,6 +54,78 @@ class Provider:
         message = choice['message']
         calls = [{'id': c['id'], 'name': c['function']['name'], 'arguments': c['function']['arguments']} for c in message.get('tool_calls', [])]
         return {'message': message, 'calls': calls, 'finish': choice.get('finish_reason'), 'usage': data.get('usage', {})}
+
+    def _gemini_native(self, messages, schemas):
+        """Translate the shared loop contract to Gemini generateContent."""
+        from urllib.parse import quote
+
+        def clean_schema(value):
+            if isinstance(value, dict):
+                return {k: clean_schema(v) for k, v in value.items()
+                        if k != 'additionalProperties'}
+            if isinstance(value, list):
+                return [clean_schema(v) for v in value]
+            return value
+
+        contents = []
+        call_names = {}
+        for message in messages:
+            role = message['role']
+            if role == 'system':
+                continue
+            if role == 'assistant':
+                for call in message.get('tool_calls', []):
+                    call_names[call['id']] = call['function']['name']
+                # Preserve all native parts, including thought signatures.
+                parts = message.get('_gemini_parts')
+                if parts is None:
+                    parts = [{'text': message['content']}] if message.get('content') else []
+                    parts += [{'functionCall': {
+                        'name': c['function']['name'],
+                        'args': json.loads(c['function']['arguments']),
+                    }} for c in message.get('tool_calls', [])]
+                contents.append({'role': 'model', 'parts': parts})
+            elif role == 'tool':
+                part = {'functionResponse': {
+                    'name': call_names[message['tool_call_id']],
+                    'response': json.loads(message['content']),
+                }}
+                if contents and contents[-1]['role'] == 'user':
+                    contents[-1]['parts'].append(part)
+                else:
+                    contents.append({'role': 'user', 'parts': [part]})
+            else:
+                contents.append({'role': 'user', 'parts': [{'text': message['content']}]})
+        payload = {'contents': contents}
+        system = '\n'.join(m['content'] for m in messages if m['role'] == 'system')
+        if system:
+            payload['systemInstruction'] = {'parts': [{'text': system}]}
+        if schemas:
+            payload['tools'] = [{'functionDeclarations': [
+                clean_schema(s['function']) for s in schemas]}]
+        url = ('https://generativelanguage.googleapis.com/v1beta/models/'
+               + quote(self.model, safe='') + ':generateContent')
+        data = post_json(url, {'x-goog-api-key': self.key}, payload)
+        candidate = data.get('candidates', [{}])[0]
+        parts = candidate.get('content', {}).get('parts', [])
+        calls = []
+        for index, part in enumerate(parts):
+            if 'functionCall' in part:
+                call = part['functionCall']
+                calls.append({'id': f'gemini_{len(messages)}_{index}',
+                              'name': call['name'],
+                              'arguments': json.dumps(call.get('args', {}), ensure_ascii=False)})
+        text = '\n'.join(p['text'] for p in parts if 'text' in p and not p.get('thought'))
+        message = {'role': 'assistant', 'content': text or None, '_gemini_parts': parts}
+        if calls:
+            message['tool_calls'] = [{'id': c['id'], 'type': 'function',
+                                     'function': {'name': c['name'], 'arguments': c['arguments']}}
+                                    for c in calls]
+        reason = candidate.get('finishReason', 'NO_CANDIDATE')
+        finish = ('tool_calls' if calls else 'stop') if reason == 'STOP' else (
+            'length' if reason == 'MAX_TOKENS' else reason)
+        return {'message': message, 'calls': calls, 'finish': finish,
+                'usage': data.get('usageMetadata', {})}
 
     def _anthropic(self, messages, schemas):
         system = '\n'.join(m['content'] for m in messages if m['role'] == 'system')
